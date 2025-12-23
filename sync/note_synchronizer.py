@@ -54,7 +54,11 @@ class NoteSynchronizer:
             for img_name in not_in_local_img:
                 if img_name in resources_map:
                     img_url = resources_map[img_name]
+                    # 原代码
                     FileManager.download_img_from_url(record, img_name, img_url)
+                    
+                    # 修改为
+                    FileManager.download_img_from_url(record, img_name, img_url, record['created']/1000)
                 else:
                     log.warning(f"Image '{img_name}' needed but not found in resources list for doc {record.get('doc_guid', 'N/A')}")
         else:
@@ -63,7 +67,11 @@ class NoteSynchronizer:
             for img_file_name in need_upload_images:
                 # 如果图片不存在 api 获取图片内容, 将图片下载到本地
                 img_byte = self.api_client.get_collaboration_image_byte(token, record['doc_guid'], img_file_name)
+                # 原代码
                 FileManager.download_img_from_byte(record, img_file_name, img_byte)
+                
+                # 修改为
+                FileManager.download_img_from_byte(record, img_file_name, img_byte, record['created']/1000)
 
     def _save_img_and_get_url(self, record: dict, need_upload_images: list[str]) -> dict[str, str]:
         """
@@ -124,7 +132,9 @@ class NoteSynchronizer:
             note_content = parsed_note.content
             note_prop = NoteProperty.from_sync_record(record).to_string()
             joined_note_content = note_prop + note_content
-            FileManager.save_md_to_file(record['category'], record['title'], joined_note_content)
+            # 传递创建时间（使用 record 中的原始时间戳，转换为秒）
+            log.info(f"同步笔记: {record['title']}, 创建时间: {record['created']}")
+            FileManager.save_md_to_file(record['category'], record['title'], joined_note_content, record['created']/1000)
 
             # 更新笔记的同步状态
             self.db.update_note_sync_status(record['doc_guid'], sync_status=True, fail_reason='')
@@ -212,7 +222,7 @@ class NoteSynchronizer:
                     # 下载附件
                     attachment_byte = self.api_client.download_attachment(record['doc_guid'], att_guid)
                     # 保存附件到本地
-                    FileManager.download_attachment_from_byte(record, att_name, attachment_byte)
+                    FileManager.download_attachment_from_byte(record, att_name, attachment_byte, record['created']/1000)
                     # 生成相对路径
                     relative_path = f"./attachments/{att_name}"
                     attachment_list.append(f"- [{att_name}]({relative_path})")

@@ -24,22 +24,22 @@ class ImageHandler:
             return None # 或者根据需要返回错误指示
 
         # 提取文件扩展名
-        _, ext = os.path.splitext(image_name)
-        # 生成新文件名 (YYYYMMDDHHMMSSmmm)
-        new_name_part = datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')[:-3]
-        new_image_name = f"{new_name_part}{ext}"
-        new_img_path = os.path.join(base_img_directory, new_image_name)
+        # _, ext = os.path.splitext(image_name)
+        # # 生成新文件名 (YYYYMMDDHHMMSSmmm)
+        # new_name_part = datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')[:-3]
+        # new_image_name = f"{new_name_part}{ext}"
+        # new_img_path = os.path.join(base_img_directory, new_image_name)
 
         # 重命名文件
-        try:
-            os.rename(old_img_path, new_img_path)
-            log.info(f"Image renamed from {old_img_path} to {new_img_path}") # 使用 log.info
-        except OSError as e:
-            log.error(f"Error renaming file {old_img_path} to {new_img_path}: {e}") # 使用 log.error
-            return None # 或者根据需要返回错误指示
+        # try:
+        #     os.rename(old_img_path, new_img_path)
+        #     log.info(f"Image renamed from {old_img_path} to {new_img_path}") # 使用 log.info
+        # except OSError as e:
+        #     log.error(f"Error renaming file {old_img_path} to {new_img_path}: {e}") # 使用 log.error
+        #     return None # 或者根据需要返回错误指示
 
         # 返回相对路径 ./images/new_image_name.ext
         # 注意: 这里必须使用 POSIX 风格的分隔符，以保证 Obsidian 等 Markdown 渲染器识别
         # 避免在 Windows 下出现 .\images\xxx 的反斜杠路径
-        relative_path = f"./images/{new_image_name}"
+        relative_path = f"./images/{image_name}"
         return relative_path

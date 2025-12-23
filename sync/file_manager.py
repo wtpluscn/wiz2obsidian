@@ -1,3 +1,4 @@
+import datetime
 import os
 import sys
 from log import log
@@ -65,37 +66,115 @@ class FileManager:
         return safe_filename
 
     @staticmethod
-    def save_md_to_file(category, title, content):
+    def save_md_to_file(category, title, content, create_time=None):
         """
         保存md文件
         :param category:  笔记的目录 eg: /xx1/xx2/
         :param title: 笔记标题
-        :param content:
+        :param content: 笔记内容
+        :param create_time: 创建时间（datetime对象、时间戳或字符串）
         :return:
         """
+        log.info(f"开始保存笔记: {title}, 分类: {category}, 创建时间: {create_time}")
+        
         # 使用绝对路径
         app_root = FileManager.get_app_root()
         output_directory = os.path.join(app_root, "output", "note", category.strip("/").replace("/", os.path.sep))
         FileManager._create_directory(output_directory)
-
+    
         # 清理标题，确保文件名安全
         safe_title = FileManager.sanitize_filename(title)
         
         # 如果 title 是以 .md 结尾, 新文件的文件名无需添加 .md
         if safe_title.endswith(".md"):
             safe_title = safe_title[:-3]
-
+    
+        file_path = os.path.join(output_directory, safe_title + '.md')
         FileManager._write_file(output_directory, safe_title + '.md', content)
+        log.info(f"笔记内容已写入文件: {file_path}")
+        
+        # 设置文件的创建和修改时间
+        if create_time is not None:
+            log.info(f"尝试设置文件 {file_path} 的时间为: {create_time}")
+            # 转换为时间戳
+            if isinstance(create_time, str):
+                # 如果是字符串格式的时间，先转换为datetime对象
+                try:
+                    create_time = datetime.strptime(create_time, "%Y-%m-%d %H:%M:%S")
+                    log.info(f"将字符串时间转换为datetime对象: {create_time}")
+                except ValueError:
+                    # 如果格式不正确，尝试其他常见格式
+                    try:
+                        create_time = datetime.strptime(create_time, "%Y-%m-%d")
+                        log.info(f"将字符串时间转换为datetime对象: {create_time}")
+                    except ValueError:
+                        # 如果还是无法解析，忽略时间设置
+                        log.warning(f"无法解析时间字符串: {create_time}，跳过时间设置")
+                        return
+            
+            if hasattr(create_time, 'timestamp'):
+                # 如果是datetime对象
+                timestamp = create_time.timestamp()
+                log.info(f"将datetime对象转换为时间戳: {timestamp}")
+            else:
+                # 如果已经是时间戳
+                timestamp = create_time
+                log.info(f"使用原始时间戳: {timestamp}")
+            
+            # 设置文件的创建和修改时间
+            try:
+                os.utime(file_path, (timestamp, timestamp))
+                log.info(f"成功设置文件 {file_path} 的时间为时间戳: {timestamp}")
+            except Exception as e:
+                log.error(f"设置文件时间失败: {e}")
+        else:
+            log.warning(f"没有提供创建时间，跳过时间设置")
 
     # 保存图片到本地
     @staticmethod
-    def save_image_to_file(category, title, file_name, content):
+    def save_image_to_file(category, title, file_name, content, create_time=None):
         app_root = FileManager.get_app_root()
         # 清理标题，确保目录名安全
         safe_title = FileManager.sanitize_filename(title)
         output_directory = os.path.join(app_root, "output", "export_image", category.strip("/").replace("/", os.path.sep), safe_title)
         FileManager._create_directory(output_directory)
+        full_path = os.path.join(output_directory, file_name)
         FileManager._write_bfile(output_directory, file_name, content)
+        
+        # 设置文件的创建和修改时间
+        if create_time is not None:
+            log.info(f"尝试设置图片文件 {full_path} 的时间为: {create_time}")
+            # 转换为时间戳
+            if isinstance(create_time, str):
+                # 如果是字符串格式的时间，先转换为datetime对象
+                try:
+                    create_time = datetime.strptime(create_time, "%Y-%m-%d %H:%M:%S")
+                    log.info(f"将字符串时间转换为datetime对象: {create_time}")
+                except ValueError:
+                    # 如果格式不正确，尝试其他常见格式
+                    try:
+                        create_time = datetime.strptime(create_time, "%Y-%m-%d")
+                        log.info(f"将字符串时间转换为datetime对象: {create_time}")
+                    except ValueError:
+                        # 如果还是无法解析，忽略时间设置
+                        log.warning(f"无法解析时间字符串: {create_time}，跳过时间设置")
+                        return
+            
+            if hasattr(create_time, 'timestamp'):
+                # 如果是datetime对象
+                timestamp = create_time.timestamp()
+                log.info(f"将datetime对象转换为时间戳: {timestamp}")
+            else:
+                # 如果已经是时间戳
+                timestamp = create_time
+                log.info(f"使用原始时间戳: {timestamp}")
+            
+            # 设置文件的创建和修改时间
+            try:
+                os.utime(full_path, (timestamp, timestamp))
+                log.info(f"成功设置图片文件 {full_path} 的时间为时间戳: {timestamp}")
+            except Exception as e:
+                log.error(f"设置图片文件时间失败: {e}")
 
     @staticmethod
     def get_img_directory(record):
@@ -124,7 +203,7 @@ class FileManager:
         return not os.path.exists(full_path)
 
     @staticmethod
-    def download_img_from_url(record, img_file_name, url):
+    def download_img_from_url(record, img_file_name, url, create_time=None):
         img_directory = FileManager.get_img_directory(record)
         FileManager._create_directory(img_directory)
         full_path = os.path.join(img_directory, img_file_name)
@@ -135,23 +214,94 @@ class FileManager:
         with open(full_path, 'wb') as file:
             file.write(response.content)
         log.info(f"文件下载完成 {img_file_name}")
+        
+        # 设置文件的创建和修改时间
+        if create_time is not None:
+            log.info(f"尝试设置图片文件 {full_path} 的时间为: {create_time}")
+            # 转换为时间戳
+            if isinstance(create_time, str):
+                # 如果是字符串格式的时间，先转换为datetime对象
+                try:
+                    create_time = datetime.strptime(create_time, "%Y-%m-%d %H:%M:%S")
+                    log.info(f"将字符串时间转换为datetime对象: {create_time}")
+                except ValueError:
+                    # 如果格式不正确，尝试其他常见格式
+                    try:
+                        create_time = datetime.strptime(create_time, "%Y-%m-%d")
+                        log.info(f"将字符串时间转换为datetime对象: {create_time}")
+                    except ValueError:
+                        # 如果还是无法解析，忽略时间设置
+                        log.warning(f"无法解析时间字符串: {create_time}，跳过时间设置")
+                        return
+            
+            if hasattr(create_time, 'timestamp'):
+                # 如果是datetime对象
+                timestamp = create_time.timestamp()
+                log.info(f"将datetime对象转换为时间戳: {timestamp}")
+            else:
+                # 如果已经是时间戳
+                timestamp = create_time
+                log.info(f"使用原始时间戳: {timestamp}")
+            
+            # 设置文件的创建和修改时间
+            try:
+                os.utime(full_path, (timestamp, timestamp))
+                log.info(f"成功设置图片文件 {full_path} 的时间为时间戳: {timestamp}")
+            except Exception as e:
+                log.error(f"设置图片文件时间失败: {e}")
 
     @staticmethod
-    def download_img_from_byte(record, img_file_name, byte):
+    def download_img_from_byte(record, img_file_name, byte, create_time=None):
         img_directory = FileManager.get_img_directory(record)
         FileManager._create_directory(img_directory)
         full_path = os.path.join(img_directory, img_file_name)
         log.info(f"download_img_from_byte {full_path}")
         with open(full_path, "wb") as file:
             file.write(byte)
+        
+        # 设置文件的创建和修改时间
+        if create_time is not None:
+            log.info(f"尝试设置图片文件 {full_path} 的时间为: {create_time}")
+            # 转换为时间戳
+            if isinstance(create_time, str):
+                # 如果是字符串格式的时间，先转换为datetime对象
+                try:
+                    create_time = datetime.strptime(create_time, "%Y-%m-%d %H:%M:%S")
+                    log.info(f"将字符串时间转换为datetime对象: {create_time}")
+                except ValueError:
+                    # 如果格式不正确，尝试其他常见格式
+                    try:
+                        create_time = datetime.strptime(create_time, "%Y-%m-%d")
+                        log.info(f"将字符串时间转换为datetime对象: {create_time}")
+                    except ValueError:
+                        # 如果还是无法解析，忽略时间设置
+                        log.warning(f"无法解析时间字符串: {create_time}，跳过时间设置")
+                        return
+            
+            if hasattr(create_time, 'timestamp'):
+                # 如果是datetime对象
+                timestamp = create_time.timestamp()
+                log.info(f"将datetime对象转换为时间戳: {timestamp}")
+            else:
+                # 如果已经是时间戳
+                timestamp = create_time
+                log.info(f"使用原始时间戳: {timestamp}")
+            
+            # 设置文件的创建和修改时间
+            try:
+                os.utime(full_path, (timestamp, timestamp))
+                log.info(f"成功设置图片文件 {full_path} 的时间为时间戳: {timestamp}")
+            except Exception as e:
+                log.error(f"设置图片文件时间失败: {e}")
 
     @staticmethod
-    def download_attachment_from_byte(record, att_file_name, byte_content):
+    def download_attachment_from_byte(record, att_file_name, byte_content, create_time=None):
         """
         从二进制内容下载附件到本地
         :param record: 笔记同步记录
         :param att_file_name: 附件文件名
         :param byte_content: 附件二进制内容
+        :param create_time: 创建时间（datetime对象、时间戳或字符串）
         :return:
         """
         attachments_directory = FileManager.get_attachments_directory(record)
@@ -160,7 +310,41 @@ class FileManager:
         log.info(f"download_attachment_from_byte {full_path}")
         with open(full_path, "wb") as file:
             file.write(byte_content)
-
+        
+        # 设置文件的创建和修改时间
+        if create_time is not None:
+            log.info(f"尝试设置附件文件 {full_path} 的时间为: {create_time}")
+            # 转换为时间戳
+            if isinstance(create_time, str):
+                # 如果是字符串格式的时间，先转换为datetime对象
+                try:
+                    create_time = datetime.strptime(create_time, "%Y-%m-%d %H:%M:%S")
+                    log.info(f"将字符串时间转换为datetime对象: {create_time}")
+                except ValueError:
+                    # 如果格式不正确，尝试其他常见格式
+                    try:
+                        create_time = datetime.strptime(create_time, "%Y-%m-%d")
+                        log.info(f"将字符串时间转换为datetime对象: {create_time}")
+                    except ValueError:
+                        # 如果还是无法解析，忽略时间设置
+                        log.warning(f"无法解析时间字符串: {create_time}，跳过时间设置")
+                        return
+            
+            if hasattr(create_time, 'timestamp'):
+                # 如果是datetime对象
+                timestamp = create_time.timestamp()
+                log.info(f"将datetime对象转换为时间戳: {timestamp}")
+            else:
+                # 如果已经是时间戳
+                timestamp = create_time
+                log.info(f"使用原始时间戳: {timestamp}")
+            
+            # 设置文件的创建和修改时间
+            try:
+                os.utime(full_path, (timestamp, timestamp))
+                log.info(f"成功设置附件文件 {full_path} 的时间为时间戳: {timestamp}")
+            except Exception as e:
+                log.error(f"设置附件文件时间失败: {e}")
 
     @staticmethod
     def get_not_in_local_img(record, need_upload_images):
